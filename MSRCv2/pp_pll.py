@@ -7,7 +7,6 @@ feature_count = 48
 k=10
 my_lambda = 0.005
 alpha = 1 / (1 + 1)
-iter_run = [5, 20, 40, 60, 80, 100]
 T = 100
 
 def my_knn(inX, dataSet, k):
@@ -87,7 +86,7 @@ def func(parameters, data, probability_e_step):
 
     return second_term - np.sum(first_term)
 
-#(13,38)
+#(label_count,feature_count)
 def gfunc(parameters, data, probability_e_step):
     feature = ['feature' + str(x) for x in range(feature_count)]
 
@@ -104,7 +103,7 @@ def gfunc(parameters, data, probability_e_step):
 
     return first_term + second_term
 
-# BFGS
+#L_BFGS
 def L_BFGS(data, parameters2, probability_e_step):
     print('L_BFGS...')
     rho = 0.55
@@ -112,21 +111,19 @@ def L_BFGS(data, parameters2, probability_e_step):
     beta_piao = 0.4
     beta = 0.55
 
-    Bk = np.eye(feature_count * label_count)  # (494, 494)
-    gk = gfunc(parameters2, data, probability_e_step).reshape(-1, 1)  # (494,1)
-    # 下降方向
-    dk = -np.linalg.solve(Bk, gk)  # (494,1)
-    bfgs_iter = 0
-    result = []
+    Bk = np.eye(feature_count * label_count)
+    gk = gfunc(parameters2, data, probability_e_step).reshape(-1, 1)
 
-    # s1和s2用于保存最近l个,这里l取6
+    dk = -np.linalg.solve(Bk, gk)
+    bfgs_iter = 0
+
     s = []
     y = []
-    l = 6
+    l = 7
 
     while (bfgs_iter <= max_bfgs_iter):
-        fk = func(parameters2, data, probability_e_step)  # (1,1)
-        gk = gfunc(parameters2, data, probability_e_step).reshape(-1, 1)  # (494,1)
+        fk = func(parameters2, data, probability_e_step)
+        gk = gfunc(parameters2, data, probability_e_step).reshape(-1, 1)
         m = 0
         mk = 0
 
@@ -143,20 +140,17 @@ def L_BFGS(data, parameters2, probability_e_step):
 
         new_parameters2 = parameters2 + (rho ** mk) * dk.reshape(label_count, feature_count)
 
-        # 保留l个
         if (bfgs_iter > l):
             s.pop(0)
             y.pop(0)
 
-        # 计算最新的
-        sk = (new_parameters2 - parameters2).reshape(-1, 1)  # (494,1)
+        sk = (new_parameters2 - parameters2).reshape(-1, 1)
         y_left = gfunc(new_parameters2, data, probability_e_step).reshape(-1, 1)
-        yk = y_left - gk  # (494,1)
+        yk = y_left - gk
 
         s.append(sk)
         y.append(yk)
 
-        # two-loop的过程
         t = len(s)
         a = []
         for i in range(t):
@@ -178,7 +172,7 @@ def L_BFGS(data, parameters2, probability_e_step):
             break
     a = func(parameters2, data, probability_e_step)
     b = np.sum(abs(y_left))
-    print('BFGS have finished, and final func is %f, gfunc is %f' % (a, b))
+    print('L_BFGS have ended, and the value of final func is %f, the derivative of final func is %f' % (a, b))
     return parameters2
 
 def runPP_PLL(data):
@@ -193,7 +187,7 @@ def runPP_PLL(data):
     print()
     print('Stage 2:')
     for em_iter in range(T):
-        print('PP-PLL第%d次迭代' % (em_iter), end=': \n')
+        print('The %d-th iteration of PP-PLL' % (em_iter), end=': \n')
 
         # E_STEP
         print('E-Step')

@@ -88,7 +88,7 @@ def func(parameters, data, probability_e_step):
 
     return second_term - np.sum(first_term)
 
-#(13,38)
+#(label_count,feature_count)
 def gfunc(parameters, data, probability_e_step):
     feature = ['feature' + str(x) for x in range(feature_count)]
 
@@ -145,7 +145,7 @@ def BFGS(data, parameters2, probability_e_step):
             break
     a = func(parameters2, data, probability_e_step)
     b = np.sum(abs(y_left))
-    print('BFGS have finished, and final func is %f, gfunc is %f'%(a,b))
+    print('BFGS have ended, and the value of final func is %f, the derivative of final func is %f'%(a,b))
     return parameters2
 
 def runPP_PLL(data):
@@ -160,7 +160,7 @@ def runPP_PLL(data):
     print()
     print('Stage 2:')
     for em_iter in range(T):
-        print('PP-PLL第%d次迭代' % (em_iter), end=': \n')
+        print('The %d-th iteration of PP-PLL' % (em_iter), end=': \n')
 
         # E_STEP
         print('E-Step')
@@ -194,21 +194,6 @@ def runPP_PLL(data):
             break
         parameters = parameters2
 
-        if (em_iter % 10 == 0):
-            data_matrix = data[feature].values
-            probability = data_matrix.dot(parameters.T)
-            probability = np.exp(probability)
-            sum_probability = np.sum(probability, axis=1).reshape(-1, 1)
-            probability = probability / sum_probability
-
-            probability = pd.DataFrame(probability)
-            for index, row in data.iterrows():
-                absense = [x for x in range(label_count) if x not in row['PL']]
-                probability.loc[index, absense] = 0
-            probability = probability.values
-
-            data['pre_label'] = np.argmax(probability, axis=1)
-            data.drop(['pre_label'], axis=1, inplace=True)
     return parameters
 
 if __name__ == '__main__':

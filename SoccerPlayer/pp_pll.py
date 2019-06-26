@@ -2,12 +2,11 @@ import pandas as pd
 import numpy as np
 from cvxopt import solvers, matrix
 
-label_count = 8
-feature_count = 7
+label_count = 171
+feature_count = 279
 k=10
 my_lambda = 0.005
 alpha = 1 / (1 + 1)
-iter_run = [5, 20, 40, 60, 80, 100]
 T = 100
 
 def my_knn(inX, dataSet, k):
@@ -35,7 +34,6 @@ def stage_one(data):
             # solve a linear matrix equation
             w_index = np.linalg.solve(knn_data.dot(knn_data.T),
                                       knn_data.dot(object_self))
-
         else:
             w_index = np.zeros((k, 1))
 
@@ -105,48 +103,75 @@ def gfunc(parameters, data, probability_e_step):
 
     return first_term + second_term
 
-# BFGS
-def BFGS(data, parameters2, probability_e_step):
-    print('BFGS...')
+#L_BFGS
+def L_BFGS(data, parameters2, probability_e_step):
+    print('L_BFGS...')
     rho = 0.55
     max_bfgs_iter = 2000
     beta_piao = 0.4
     beta = 0.55
 
-    Bk = np.eye(feature_count * label_count)  # (494, 494)
+    Bk = np.eye(feature_count * label_count)
+    gk = gfunc(parameters2, data, probability_e_step).reshape(-1, 1)
+    dk = -np.linalg.solve(Bk, gk)
     bfgs_iter = 0
-    result = []
+
+    s = []
+    y = []
+    l = 7
+
     while (bfgs_iter <= max_bfgs_iter):
         fk = func(parameters2, data, probability_e_step)  # (1,1)
         gk = gfunc(parameters2, data, probability_e_step).reshape(-1, 1)  # (494,1)
-        # 下降方向
-        dk = -np.linalg.solve(Bk, gk)  # (494,1)
         m = 0
-        mk = 1
+        mk = 0
+
         while (m < 100):
-            newfk = func(parameters2 + (rho ** m) * dk.reshape(label_count,feature_count),
+            newfk = func(parameters2 + (rho ** m) * dk.reshape(label_count, feature_count),
                          data, probability_e_step)
-            newgk = gfunc(parameters2 + (rho ** m) * dk.reshape(label_count,feature_count),
+            newgk = gfunc(parameters2 + (rho ** m) * dk.reshape(label_count, feature_count),
                           data, probability_e_step).reshape(-1, 1)
             if (newfk <= fk + beta_piao * (rho ** m) * dk.T.dot(gk)[0, 0]):
                 if (dk.T.dot(newgk)[0, 0] >= beta * dk.T.dot(gk)[0, 0]):
                     mk = m
                     break
             m += 1
+        new_parameters2 = parameters2 + (rho ** mk) * dk.reshape(label_count, feature_count)
 
-        new_parameters2 = parameters2 + (rho ** mk) * dk.reshape(label_count,feature_count)
-        sk = (new_parameters2 - parameters2).reshape(-1, 1)  # (494,1)
+        if (bfgs_iter > l):
+            s.pop(0)
+            y.pop(0)
+
+        sk = (new_parameters2 - parameters2).reshape(-1, 1)
         y_left = gfunc(new_parameters2, data, probability_e_step).reshape(-1, 1)
-        yk = y_left - gk  # (494,1)
-        Bk = Bk - (Bk.dot(sk.dot(sk.T)).dot(Bk)) / (sk.T.dot(Bk.dot(sk))) + (yk.dot(yk.T)) / (yk.T.dot(sk))
+        yk = y_left - gk
+
+        s.append(sk)
+        y.append(yk)
+
+        t = len(s)
+        a = []
+        for i in range(t):
+            alpha = s[t - i - 1].T.dot(y_left) / (y[t - i - 1].T.dot(s[t - i - 1]))
+            y_left = y_left - alpha[0,0]* y[t - i - 1]
+            a.append(alpha[0,0])
+
+        r = Bk.dot(y_left)
+
+        for i in range(t):
+            gama = y[i].T.dot(r) / (y[i].T.dot(s[i]))
+            r = r + s[i]*(a[t - i - 1] - gama[0,0])
+
+        if(yk.T.dot(sk) > 0):
+            dk = -r
+
         parameters2 = new_parameters2
         bfgs_iter += 1
-
-        if (np.sum(abs(y_left)) < 0.01):
+        if (np.sum(abs(y_left)) < 2000):
             break
     a = func(parameters2, data, probability_e_step)
     b = np.sum(abs(y_left))
-    print('BFGS have ended, and the value of final func is %f, the derivative of final func is %f'%(a,b))
+    print('L_BFGS have ended, and the value of final func is %f, the derivative of final func is %f' % (a, b))
     return parameters2
 
 def runPP_PLL(data):
@@ -188,25 +213,29 @@ def runPP_PLL(data):
         parameters2 = np.array(parameters2) #(label_count,feature_count)
 
         #BFGS
-        parameters2 = BFGS(data, parameters2, probability_e_step)
+        parameters2 = L_BFGS(data, parameters2, probability_e_step)
         e = np.sum(abs(parameters2 - parameters))
         print('e: ', e)
-        if(e < 0.001):
+        if(e < 1500):
             break
         parameters = parameters2
     return parameters
 
 if __name__ == '__main__':
-    data = pd.read_csv(r'pl_glass.csv')
-    data['id'] = list(range(len(data)))
+    data = pd.read_csv('SoccerPlayer2.txt')
+    feature = ['feature'+str(x) for x in range(feature_count)]
+    label = [x for x in data.columns if x not in feature + ['id']]
+    PL = label[:label_count]
+    TL = label[label_count:]
+    print('data processing...')
     PL_list = []
+    TL_list = []
     for index, row in data.iterrows():
-        pl = row['PL'].replace('[', '')
-        pl = pl.replace(']', '')
-        PL_list.append([int(x) for x in pl.split(',')])
+        PL_list.append(list(np.where(row[PL] == 1)[0]))
+        TL_list.append(list(np.where(row[TL] == 1)[0])[0])
 
     data['PL'] = PL_list
-    feature = ['feature' + str(x) for x in range(feature_count)]
+    data['TL'] = TL_list
 
     for f in feature:
         max = np.max(data[f])
@@ -214,25 +243,25 @@ if __name__ == '__main__':
 
         data[f] = data[f].apply(lambda x: (x - min) / (max - min))
 
-    train = data.sample(frac = 0.5).reset_index(drop = True)
-    test = data[~data.id.isin(list(set(train['id'])))].reset_index(drop=True)
+    print('data processing have ended!')
 
-    parameters = runPP_PLL(train)
-    df_parameter = pd.DataFrame(parameters.T)
+    parameters = runPP_PLL(data)
 
-    data_matrix = test[feature].values
+    data_matrix = data[feature].values
     probability = data_matrix.dot(parameters.T)
     probability = np.exp(probability)
     sum_probability = np.sum(probability, axis=1).reshape(-1, 1)
     probability = probability / sum_probability
 
     probability = pd.DataFrame(probability)
-    for index, row in test.iterrows():
+    for index, row in data.iterrows():
         absense = [x for x in range(label_count) if x not in row['PL']]
         probability.loc[index, absense] = 0
     probability = probability.values
 
-    test['pre_label'] = np.argmax(probability, axis=1)
-    accu = list(map(lambda x, y: 1 if x == y else 0, test['label'], test['pre_label']))
+    data['pre_label'] = np.argmax(probability, axis=1)
+    accu = list(map(lambda x, y: 1 if x == y else 0, data['TL'], data['pre_label']))
     print('accuracy:', np.sum(accu) / len(accu))
+
+
 

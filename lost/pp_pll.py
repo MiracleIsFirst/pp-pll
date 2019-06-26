@@ -7,7 +7,7 @@ feature_count = 108
 k=10
 my_lambda = 0.005
 alpha = 1 / (1 + 1)
-iter_run = [5, 20, 40, 60, 80, 100]
+T = 100
 
 def my_knn(inX, dataSet, k):
     dataSetSize = dataSet.shape[0]
@@ -86,7 +86,7 @@ def func(parameters, data, probability_e_step):
 
     return second_term - np.sum(first_term)
 
-#(13,38)
+#(label_count,feature_count)
 def gfunc(parameters, data, probability_e_step):
     feature = ['feature' + str(x) for x in range(feature_count)]
 
@@ -111,13 +111,12 @@ def BFGS(data, parameters2, probability_e_step):
     beta_piao = 0.4
     beta = 0.55
 
-    Bk = np.eye(feature_count * label_count)  # (494, 494)
+    Bk = np.eye(feature_count * label_count)
     bfgs_iter = 0
     while (bfgs_iter <= max_bfgs_iter):
-        fk = func(parameters2, data, probability_e_step)  # (1,1)
-        gk = gfunc(parameters2, data, probability_e_step).reshape(-1, 1)  # (494,1)
-        # 下降方向
-        dk = -np.linalg.solve(Bk, gk)  # (494,1)
+        fk = func(parameters2, data, probability_e_step)
+        gk = gfunc(parameters2, data, probability_e_step).reshape(-1, 1)
+        dk = -np.linalg.solve(Bk, gk)
         m = 0
         mk = 0
         while (m < 100):
@@ -131,9 +130,9 @@ def BFGS(data, parameters2, probability_e_step):
                     break
             m += 1
         new_parameters2 = parameters2 + (rho ** mk) * dk.reshape(label_count,feature_count)
-        sk = (new_parameters2 - parameters2).reshape(-1, 1)  # (494,1)
+        sk = (new_parameters2 - parameters2).reshape(-1, 1)
         y_left = gfunc(new_parameters2, data, probability_e_step).reshape(-1, 1)
-        yk = y_left - gk  # (494,1)
+        yk = y_left - gk
         Bk = Bk - (Bk.dot(sk.dot(sk.T)).dot(Bk)) / (sk.T.dot(Bk.dot(sk))) + (yk.dot(yk.T)) / (yk.T.dot(sk))
         parameters2 = new_parameters2
         bfgs_iter += 1
@@ -141,7 +140,7 @@ def BFGS(data, parameters2, probability_e_step):
             break
     a = func(parameters2, data, probability_e_step)
     b = np.sum(abs(y_left))
-    print('BFGS have finished, and final func is %f, gfunc is %f'%(a,b))
+    print('BFGS have ended, and the value of final func is %f, the derivative of final func is %f'%(a,b))
     return parameters2
 
 def runPP_PLL(data):
@@ -156,7 +155,7 @@ def runPP_PLL(data):
     print()
     print('Stage 2:')
     for em_iter in range(T):
-        print('PP-PLL第%d次迭代' % (em_iter), end=': \n')
+        print('The %d-th iteration of PP-PLL' % (em_iter), end=': \n')
 
         # E_STEP
         print('E-Step')
@@ -190,24 +189,6 @@ def runPP_PLL(data):
             break
         parameters = parameters2
 
-        if (em_iter % 10 == 0):
-            data_matrix = data[feature].values
-            probability = data_matrix.dot(parameters.T)
-            probability = np.exp(probability)
-            sum_probability = np.sum(probability, axis=1).reshape(-1, 1)
-            probability = probability / sum_probability
-
-            probability = pd.DataFrame(probability)
-            for index, row in data.iterrows():
-                absense = [x for x in range(label_count) if x not in row['PL']]
-                probability.loc[index, absense] = 0
-            probability = probability.values
-
-            data['pre_label'] = np.argmax(probability, axis=1)
-            accu = list(map(lambda x, y: 1 if x == y else 0, data['TL'], data['pre_label']))
-            print('accuracy_%d:' % (em_iter), np.sum(accu) / len(accu))
-
-            data.drop(['pre_label'], axis=1, inplace=True)
     return parameters
 
 if __name__ == '__main__':
@@ -268,6 +249,5 @@ if __name__ == '__main__':
     test['pre_label'] = np.argmax(probability, axis=1)
     accu = list(map(lambda x, y: 1 if x == y else 0, test['TL'], test['pre_label']))
     print('accuracy:', np.sum(accu) / len(accu))
-    print(E)
 
 

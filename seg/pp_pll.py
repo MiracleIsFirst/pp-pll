@@ -87,7 +87,7 @@ def func(parameters, data, probability_e_step):
 
     return second_term - np.sum(first_term)
 
-#(13,38)
+#(label_count,feature_count)
 def gfunc(parameters, data, probability_e_step):
     feature = ['feature' + str(x) for x in range(feature_count)]
 
@@ -143,7 +143,7 @@ def BFGS(data, parameters2, probability_e_step):
             break
     a = func(parameters2, data, probability_e_step)
     b = np.sum(abs(y_left))
-    print('BFGS have finished, and final func is %f, gfunc is %f'%(a,b))
+    print('BFGS have ended, and the value of final func is %f, the derivative of final func is %f'%(a,b))
     return parameters2
 
 def runPP_PLL(data):
@@ -158,7 +158,7 @@ def runPP_PLL(data):
     print()
     print('Stage 2:')
     for em_iter in range(T):
-        print('PP-PLL第%d次迭代' % (em_iter), end=': \n')
+        print('The %d-th iteration of PP-PLL' % (em_iter), end=': \n')
 
         # E_STEP
         print('E-Step')

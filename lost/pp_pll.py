@@ -1,17 +1,12 @@
 import pandas as pd
 import numpy as np
 from cvxopt import solvers, matrix
-from sklearn.cluster import KMeans
-import math
-import time
-import matplotlib.pyplot as plt
 
 label_count = 16
 feature_count = 108
 k=10
 my_lambda = 0.005
 alpha = 1 / (1 + 1)
-E = []
 iter_run = [5, 20, 40, 60, 80, 100]
 
 def my_knn(inX, dataSet, k):
@@ -24,40 +19,41 @@ def my_knn(inX, dataSet, k):
 
     return sortedDistIndicies[1:k + 1]
 
-def label_propagation(data, Pro):
+def stage_one(data):
     W = [[0.0 for i in range(len(data))] for j in range(len(data))]
     W = np.array(W)
     for index, row in data.iterrows():
+        # find k-nearest neighbor
         object_self = data[feature].values[index]
         row_knn_list = my_knn(object_self, data[feature].values, k)
-        knn_data = data[feature].values[row_knn_list]
-        object_self = object_self.reshape(-1, 1)
+        knn_data = data[feature].values[row_knn_list]  # (k, feature_count)
+        object_self = object_self.reshape(-1, 1)  # (feature_count, 1)
+        knn_data_det = np.linalg.det(knn_data.dot(knn_data.T))  # calculate matrix determinant
 
-        knn_data_det = np.linalg.det(knn_data.dot(knn_data.T))
         if (knn_data_det != 0):
+            # solve a linear matrix equation
             w_index = np.linalg.solve(knn_data.dot(knn_data.T),
-                                      knn_data.dot(object_self.reshape(-1, 1)))
+                                      knn_data.dot(object_self))
         else:
-            w_index = np.linalg.solve(knn_data.dot(knn_data.T) + np.eye(10),
-                                      knn_data.dot(object_self.reshape(-1, 1)))
+            pass
 
-        if ((False in (w_index >= 0)) == True):
+        if ((False in (w_index >= 0)) | (np.sum(w_index) == 0)):
             P = 2 * knn_data.dot(knn_data.T)
             q = (-2 * object_self.T.dot(knn_data.T)).reshape(-1, 1)
             G = -1 * np.eye(k)
             h = np.zeros((k, 1))
             w_index = solvers.qp(matrix(P), matrix(q), matrix(G), matrix(h))
             W[index, row_knn_list] = np.array(w_index['x']).reshape(1, -1)[0]
-            w1 = np.array(w_index['x']).reshape(-1, 1)
-            result = (object_self.T - w1.T.dot(knn_data)).dot(object_self - knn_data.T.dot(w1))
         else:
             W[index, row_knn_list] = np.array(w_index).reshape(1, -1)[0]
-            w1 = np.array(w_index).reshape(-1, 1)
-            result = (object_self.T - w1.T.dot(knn_data)).dot(object_self - knn_data.T.dot(w1))
 
+    # normalization
     D = np.diag(np.sum(W, axis=1))
     H = W.dot(np.linalg.inv(D))
 
+    return H
+
+def probability_propagation(data, Pro, H):
     F_t = Pro
     for t in range(100):
         F_t_plus_1 = alpha * H.dot(F_t) + (1 - alpha) * Pro
@@ -117,7 +113,6 @@ def BFGS(data, parameters2, probability_e_step):
 
     Bk = np.eye(feature_count * label_count)  # (494, 494)
     bfgs_iter = 0
-    result = []
     while (bfgs_iter <= max_bfgs_iter):
         fk = func(parameters2, data, probability_e_step)  # (1,1)
         gk = gfunc(parameters2, data, probability_e_step).reshape(-1, 1)  # (494,1)
@@ -149,36 +144,43 @@ def BFGS(data, parameters2, probability_e_step):
     print('BFGS have finished, and final func is %f, gfunc is %f'%(a,b))
     return parameters2
 
-def PL_EM(data):
+def runPP_PLL(data):
+    print('Start PP-PLL')
     feature = ['feature' + str(x) for x in range(feature_count)]
 
     parameters = [[1 / label_count for x in range(feature_count)] for y in range(label_count)]
-    parameters = np.array(parameters)#(13,38)
+    parameters = np.array(parameters)#(label_count,feature_count)
+    print('Stage 1: ')
+    W = stage_one(data)
 
-    for em_iter in range(100):
-        print('EM第%d次迭代' % (em_iter), end=': \n')
+    print()
+    print('Stage 2:')
+    for em_iter in range(T):
+        print('PP-PLL第%d次迭代' % (em_iter), end=': \n')
+
         # E_STEP
         print('E-Step')
-        logistic_matrix = data[feature].values.dot(parameters.T)  # (4998,13)
+        logistic_matrix = data[feature].values.dot(parameters.T)  #(instance_length,label_count)
         M = np.max(logistic_matrix, axis=1)
         sum = np.sum(np.exp(logistic_matrix - M.reshape(-1, 1)), axis=1).reshape(-1, 1)
 
-        probability_e_step = np.exp(logistic_matrix - M.reshape(-1,1)) / sum#(4998,13)
-        probability_e_step = pd.DataFrame(probability_e_step)
+        probability_e_step = np.exp(logistic_matrix - M.reshape(-1, 1)) / sum  #(instance_length,label_count)
 
         for index, row in data.iterrows():
             absense = [x for x in range(label_count) if x not in row['PL']]
-            probability_e_step.loc[index, absense] = 0
-            probability_e_step.loc[index, row['PL']] = \
-                probability_e_step.loc[index, row['PL']] / \
-                np.sum(probability_e_step.iloc[index][row['PL']].values)
-        probability_e_step = probability_e_step.values #(4998,13)
-        probability_e_step = label_propagation(data, probability_e_step)
+            sum = np.sum(probability_e_step[index, row['PL']])
+
+            for i in range(label_count):
+                if (i in absense):
+                    probability_e_step[index, i] = 0
+                else:
+                    probability_e_step[index, i] = probability_e_step[index, i] / sum
+        probability_e_step = probability_propagation(data, probability_e_step, W) #(instance_length,label_count)
 
         # M_STEP
         print('M-Step')
         parameters2 = [[1 / label_count for x in range(feature_count)] for y in range(label_count)]
-        parameters2 = np.array(parameters2) #(13,38)
+        parameters2 = np.array(parameters2) #(label_count,feature_count)
 
         #BFGS
         parameters2 = BFGS(data, parameters2, probability_e_step)
@@ -186,13 +188,9 @@ def PL_EM(data):
         print('e: ', e)
         if(e < 0.001):
             break
-        E.append(e)
         parameters = parameters2
 
         if (em_iter % 10 == 0):
-            # parameters_temp = pd.DataFrame(parameters.T)
-            # parameters_temp.to_csv('em_parameter/parameters_%d.csv' % (em_iter), index=None)
-
             data_matrix = data[feature].values
             probability = data_matrix.dot(parameters.T)
             probability = np.exp(probability)
@@ -253,7 +251,7 @@ if __name__ == '__main__':
     train = data.sample(frac=0.5).reset_index(drop=True)
     test = data[~data.id.isin(list(set(train['id'])))].reset_index(drop=True)
 
-    parameters = PL_EM(train)
+    parameters = runPP_PLL(train)
 
     data_matrix = test[feature].values
     probability = data_matrix.dot(parameters.T)

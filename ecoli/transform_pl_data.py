@@ -4,10 +4,10 @@ import random
 
 feature_count = 7
 class_count = 8
-p = 0.1
+p = 0.4
 
 if __name__ == '__main__':
-    data = pd.read_csv(r'ecoli.txt', header = None)
+    data = pd.read_csv(r'ecoli.csv', header = None)
 
     data_matrix = []
     label_list = []

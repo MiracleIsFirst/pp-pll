@@ -35,7 +35,7 @@ def stage_one(data):
             w_index = np.linalg.solve(knn_data.dot(knn_data.T),
                                       knn_data.dot(object_self))
         else:
-            pass
+            w_index = np.zeros((k, 1))
 
         if ((False in (w_index >= 0)) | (np.sum(w_index) == 0)):
             P = 2 * knn_data.dot(knn_data.T)
@@ -218,28 +218,10 @@ def runPP_PLL(data):
         e = np.sum(abs(parameters2 - parameters))
         print('e: ', e)
 
-        if(e < 0.001):
+        if(e < 50):
             break
         parameters = parameters2
 
-        if (em_iter % 10 == 0):
-            data_matrix = data[feature].values
-            probability = data_matrix.dot(parameters.T)
-            probability = np.exp(probability)
-            sum_probability = np.sum(probability, axis=1).reshape(-1, 1)
-            probability = probability / sum_probability
-
-            probability = pd.DataFrame(probability)
-            for index, row in data.iterrows():
-                absense = [x for x in range(label_count) if x not in row['PL']]
-                probability.loc[index, absense] = 0
-            probability = probability.values
-
-            data['pre_label'] = np.argmax(probability, axis=1)
-            accu = list(map(lambda x, y: 1 if x == y else 0, data['TL'], data['pre_label']))
-            print('accuracy_%d:' % (em_iter), np.sum(accu) / len(accu))
-
-            data.drop(['pre_label'], axis=1, inplace=True)
     return parameters
 
 if __name__ == '__main__':
@@ -274,7 +256,7 @@ if __name__ == '__main__':
 
         data[f] = data[f].apply(lambda x: (x - min) / (max - min))
 
-    print('data processing have finished!')
+    print('data processing have ended!')
 
     train = data.sample(frac=0.5).reset_index(drop=True)
     test = data[~data.id.isin(list(set(train['id'])))].reset_index(drop=True)

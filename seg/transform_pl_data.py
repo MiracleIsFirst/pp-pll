@@ -7,9 +7,8 @@ class_count = 7
 p = 0.7
 
 if __name__ == '__main__':
-    data1 = pd.read_csv(r'segmentation.csv', header = None)
-    data2 = pd.read_csv(r'segmentation2.csv', header=None)
-    data = pd.concat([data1, data2]).reset_index(drop = True)
+    data = pd.read_csv(r'segmentation.csv', header = None)
+
     data.drop([3], axis = 1, inplace = True)
     data.columns = list(range(19))
     data.rename(columns = {0 : 'label'}, inplace = True)

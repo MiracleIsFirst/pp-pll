@@ -7,7 +7,6 @@ feature_count = 18
 k=10
 my_lambda = 0.005
 alpha = 1 / (1 + 1)
-iter_run = [5, 20, 40, 60, 80, 100]
 T = 100
 
 def my_knn(inX, dataSet, k):
@@ -80,7 +79,7 @@ def func(parameters, data, probability_e_step):
     probability_m_step_second_term = np.log(probability_m_step_second_term)
     probability_m_step = logistic_matrix - M.reshape(-1, 1) - probability_m_step_second_term
 
-    first_term = probability_m_step * probability_e_step #(4998,13)
+    first_term = probability_m_step * probability_e_step
 
     second_term = np.square(parameters)
     second_term = (my_lambda / 2) * np.sum(second_term)
@@ -91,7 +90,7 @@ def func(parameters, data, probability_e_step):
 def gfunc(parameters, data, probability_e_step):
     feature = ['feature' + str(x) for x in range(feature_count)]
 
-    logistic_matrix = data[feature].values.dot(parameters.T)#(4998,13)
+    logistic_matrix = data[feature].values.dot(parameters.T)
     M = np.max(logistic_matrix, axis = 1)
     sum = np.sum(np.exp(logistic_matrix - M.reshape(-1,1)), axis=1).reshape(-1,1)
 
@@ -192,21 +191,6 @@ def runPP_PLL(data):
             break
         parameters = parameters2
 
-        if (em_iter % 10 == 0):
-            data_matrix = data[feature].values
-            probability = data_matrix.dot(parameters.T)
-            probability = np.exp(probability)
-            sum_probability = np.sum(probability, axis=1).reshape(-1, 1)
-            probability = probability / sum_probability
-
-            probability = pd.DataFrame(probability)
-            for index, row in data.iterrows():
-                absense = [x for x in range(label_count) if x not in row['PL']]
-                probability.loc[index, absense] = 0
-            probability = probability.values
-
-            data['pre_label'] = np.argmax(probability, axis=1)
-            data.drop(['pre_label'], axis=1, inplace=True)
     return parameters
 
 if __name__ == '__main__':

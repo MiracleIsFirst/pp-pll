@@ -255,22 +255,25 @@ if __name__ == '__main__':
 
     print('data processing have ended!')
 
-    parameters = runPP_PLL(data)
+    train = data.sample(frac=0.5).reset_index(drop=True)
+    test = data[~data.id.isin(list(set(train['id'])))].reset_index(drop=True)
 
-    data_matrix = data[feature].values
+    parameters = runPP_PLL(train)
+
+    data_matrix = test[feature].values
     probability = data_matrix.dot(parameters.T)
     probability = np.exp(probability)
     sum_probability = np.sum(probability, axis=1).reshape(-1, 1)
     probability = probability / sum_probability
 
     probability = pd.DataFrame(probability)
-    for index, row in data.iterrows():
+    for index, row in test.iterrows():
         absense = [x for x in range(label_count) if x not in row['PL']]
         probability.loc[index, absense] = 0
     probability = probability.values
 
-    data['pre_label'] = np.argmax(probability, axis=1)
-    accu = list(map(lambda x, y: 1 if x == y else 0, data['TL'], data['pre_label']))
+    test['pre_label'] = np.argmax(probability, axis=1)
+    accu = list(map(lambda x, y: 1 if x == y else 0, test['TL'], test['pre_label']))
     print('accuracy:', np.sum(accu) / len(accu))
 
 

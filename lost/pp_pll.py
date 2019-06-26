@@ -35,7 +35,7 @@ def stage_one(data):
             w_index = np.linalg.solve(knn_data.dot(knn_data.T),
                                       knn_data.dot(object_self))
         else:
-            pass
+            w_index = np.zeros((k, 1))
 
         if ((False in (w_index >= 0)) | (np.sum(w_index) == 0)):
             P = 2 * knn_data.dot(knn_data.T)
@@ -185,7 +185,7 @@ def runPP_PLL(data):
         parameters2 = BFGS(data, parameters2, probability_e_step)
         e = np.sum(abs(parameters2 - parameters))
         print('e: ', e)
-        if(e < 0.001):
+        if(e < 2):
             break
         parameters = parameters2
 

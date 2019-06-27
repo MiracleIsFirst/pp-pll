@@ -7,7 +7,8 @@ feature_count = 18
 k=10
 my_lambda = 0.005
 alpha = 1 / (1 + 1)
-T = 100
+T = 60
+feature = ['feature' + str(x) for x in range(feature_count)]
 
 def my_knn(inX, dataSet, k):
     dataSetSize = dataSet.shape[0]
@@ -221,13 +222,10 @@ if __name__ == '__main__':
     sum_probability = np.sum(probability, axis=1).reshape(-1, 1)
     probability = probability / sum_probability
 
-    probability = pd.DataFrame(probability)
-    for index, row in test.iterrows():
-        absense = [x for x in range(label_count) if x not in row['PL']]
-        probability.loc[index, absense] = 0
-    probability = probability.values
+    W = stage_one(test)
+    probability = probability_propagation(test, probability, W)
 
     test['pre_label'] = np.argmax(probability, axis=1)
-    accu = list(map(lambda x, y: 1 if x == y else 0, test['label'], test['pre_label']))
+    accu = list(map(lambda x, y: 1 if x == y else 0, test['TL'], test['pre_label']))
     print('accuracy:', np.sum(accu) / len(accu))
 

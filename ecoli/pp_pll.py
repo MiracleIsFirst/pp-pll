@@ -172,13 +172,12 @@ def runPP_PLL(data):
 
         for index, row in data.iterrows():
             absense = [x for x in range(label_count) if x not in row['PL']]
+            candidate_list = list(row['PL'])
             sum = np.sum(probability_e_step[index, row['PL']])
 
-            for i in range(label_count):
-                if (i in absense):
-                    probability_e_step[index, i] = 0
-                else:
-                    probability_e_step[index, i] = probability_e_step[index, i] / sum
+            probability_e_step[index, absense] = 0
+            probability_e_step[index, candidate_list] = probability_e_step[index, candidate_list] / sum
+
         probability_e_step = probability_propagation(data, probability_e_step, W) #(instance_length,label_count)
 
         # M_STEP

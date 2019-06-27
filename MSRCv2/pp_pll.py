@@ -218,7 +218,7 @@ def runPP_PLL(data):
         e = np.sum(abs(parameters2 - parameters))
         print('e: ', e)
 
-        if(e < 50):
+        if(e < 30):
             break
         parameters = parameters2
 

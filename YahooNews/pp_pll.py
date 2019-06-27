@@ -167,7 +167,7 @@ def L_BFGS(data, parameters2, probability_e_step):
 
         parameters2 = new_parameters2
         bfgs_iter += 1
-        if (np.sum(abs(y_left)) < 2000):
+        if (np.sum(abs(y_left)) < 4000):
             break
     a = func(parameters2, data, probability_e_step)
     b = np.sum(abs(y_left))
@@ -216,7 +216,7 @@ def runPP_PLL(data):
         parameters2 = L_BFGS(data, parameters2, probability_e_step)
         e = np.sum(abs(parameters2 - parameters))
         print('e: ', e)
-        if(e < 1500):
+        if(e < 4000):
             break
         parameters = parameters2
     return parameters
